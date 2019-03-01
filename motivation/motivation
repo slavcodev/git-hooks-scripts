@@ -1,0 +1,6 @@
+#!/bin/sh
+
+FCP='\033[1;35m'
+NC='\033[0m'
+
+echo "${FCP}❤ Enjoy coding${NC}"
