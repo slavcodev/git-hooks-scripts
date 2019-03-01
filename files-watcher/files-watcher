@@ -7,8 +7,8 @@
 #   watch-branches = master
 #   mode = "auto"
 #
-# [files-watcher "composer"]
-#   command = "composer install"
+# [files-watcher "composer\.(json|lock)$"]
+#   command = "composer install -n"
 #
 # [files-watcher ".php$"]
 #   command = "php-cs-fixer --dry-run"
