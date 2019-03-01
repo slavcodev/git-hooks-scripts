@@ -1,0 +1,118 @@
+#!/bin/sh
+# This `post-merge` hook watches the changed files after merge
+# and can execute external command if files matched pattern were changed.
+# Example of config:
+# ~~~
+# [files-watcher]
+#   watch-branches = master
+#   mode = "auto"
+#
+# [files-watcher "composer"]
+#   command = "composer install"
+#
+# [files-watcher ".php$"]
+#   command = "php-cs-fixer --dry-run"
+#   mode = "prompt"
+#
+# [files-watcher ".php$"]
+#   command = "phpunit"
+#   mode = "confirm"
+# ~~~
+
+pwd
+
+watch_branches=$(git config --default master --get files-watcher.watch-branches)
+default_mode=$(git config --default prompt --get files-watcher.mode)
+
+branch_name=$(git rev-parse --abbrev-ref HEAD)
+
+if [[ ! "${branch_name}" =~ "${watch_branches}" ]]; then
+    exit
+fi
+
+watch_tasks_config_pattern=files-watcher\..\*\.command
+watch_tasks=$(git config --name-only --get-regexp ${watch_tasks_config_pattern})
+
+if [[ -z ${watch_tasks} ]]; then
+    exit
+fi
+
+# Read user input, assign stdin to keyboard
+exec < /dev/tty
+
+FCR='\033[1;31m' # Red
+FCG='\033[1;32m' # Green
+FCY='\033[0;33m' # Yellow
+FCS='\033[0;37m' # Light gray (silver)
+NC='\033[0m'
+
+function prompt() {
+    echo "$@ [y/N] \c"; read answer
+    case "${answer}" in
+        y*|Y*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+function confirm() {
+    echo "$@ [Y/n] \c"; read answer
+    case "${answer}" in
+        n*|N*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+report_start() {
+  echo "${FCG}$@${NC}"
+}
+
+report_done() {
+  [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
+}
+
+report_start "Looking for triggers..."
+
+for task in ${watch_tasks}; do
+    if [[ ! "$task" =~ ${watch_tasks_config_pattern} ]]; then
+        continue
+    fi
+
+    pattern=${task#*.}      # remove prefix ending in "."
+    pattern=${pattern%.*}   # remove suffix starting with "."
+    echo "Checking '${pattern}' files..."
+
+    changed_files=$(git diff HEAD@\{1\} --name-only --diff-filter=ACMRTUXB | grep -iE ${pattern})
+
+    command=$(git config --type path --get ${task})
+    mode=$(git config --default ${default_mode} --get ${task%.*}.mode)
+
+    if [[ -n ${changed_files} ]]; then
+        echo "Found changed files:"
+
+        for file in ${changed_files} ; do
+            echo "- ${FCS}${file}${NC}"
+        done
+
+        case "${mode}" in
+            "auto" )
+                command ${command}
+                ;;
+            "prompt" )
+                if prompt "Do you like to run '${command}'?"; then
+                    command ${command}
+                fi
+                ;;
+            "confirm" )
+                if confirm "Do you like to run '${command}'?"; then
+                    command ${command}
+                fi
+                ;;
+            * )
+                echo "${FCR}Invalid mode option${NC}"
+        esac
+    fi
+done
+
+report_done
+
+exec <&-

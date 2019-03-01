@@ -18,6 +18,12 @@ Security - in case of vulnerabilities.
 
 _TBD_
 
+## [1.1.0] 2019-03-01
+
+### Added
+- Added hooks `motivation`
+- Added hooks `files-watcher`
+
 ## [1.0.0] 2019-03-01
 
 Initial release.
