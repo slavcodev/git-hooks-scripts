@@ -17,6 +17,7 @@ Security - in case of vulnerabilities.
 ## [Unreleased]
 ### Added
 - Added hooks `disallow-commits`
+- Added hooks `conventional-commit`
 
 ## [1.1.0] 2019-03-01
 ### Added
