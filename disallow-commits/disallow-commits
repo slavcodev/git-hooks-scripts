@@ -1,0 +1,26 @@
+#!/bin/sh
+# The `pre-commit` hook to disallow commits to some branches.
+# Useful for example to disallow commits directly to master branch.
+# Example of config:
+# ~~~
+# [disallow-commits]
+#   branch = master
+#   branch = development
+# ~~~
+
+FCR='\033[1;31m' # Red
+NC='\033[0m'
+
+branch_name="$(git rev-parse --abbrev-ref HEAD)"
+closed_branches=$(git config --get-all disallow-commits.branch)
+
+if [[ -z ${closed_branches} ]]; then
+  closed_branches="master"
+fi
+
+for closed_branch in ${closed_branches} ; do
+  if [[ "${branch_name}" =~ "${closed_branch}" ]]; then
+    echo "${FCR}You can't commit directly to ${closed_branch} branch${NC}"
+    exit 1
+  fi
+done

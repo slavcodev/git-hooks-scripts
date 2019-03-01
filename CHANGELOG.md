@@ -15,15 +15,13 @@ Security - in case of vulnerabilities.
 -->
 
 ## [Unreleased]
-
-_TBD_
+### Added
+- Added hooks `disallow-commits`
 
 ## [1.1.0] 2019-03-01
-
 ### Added
 - Added hooks `motivation`
 - Added hooks `files-watcher`
 
 ## [1.0.0] 2019-03-01
-
 Initial release.
