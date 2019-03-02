@@ -16,13 +16,14 @@ Security - in case of vulnerabilities.
 
 ## [Unreleased]
 ### Added
-- Added hooks `disallow-commits`
-- Added hooks `conventional-commit`
+- Added hook `disallow-commits`
+- Added hook `conventional-commit`
+- Added hook `php-cs-fixer`
 
 ## [1.1.0] 2019-03-01
 ### Added
-- Added hooks `motivation`
-- Added hooks `files-watcher`
+- Added hook `motivation`
+- Added hook `files-watcher`
 
 ## [1.0.0] 2019-03-01
 Initial release.
