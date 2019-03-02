@@ -27,24 +27,35 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # =============================================================================
-# Git `pre-commit` hook that runs `php-cs-fixer` against changed files.
-#
-# Note: you can use `commit --no-verify` to skip `pre-commit` hooks.
-#
-# Example of config:
-# ~~~
-# [php-cs-fixer]
-#   command = php-cs-fixer
-#   mode = check
-#   config-file = .php_cs
-#   files-pattern = .php$
-# ~~~
 
 FCR='\033[1;31m' # Red
 FCG='\033[1;32m' # Green
 FCY='\033[0;33m' # Yellow
 FCS='\033[0;37m' # Light gray (silver)
 NC='\033[0m'
+
+CMD="php-cs-fixer"
+VERSION="1.0.0"
+HOME="https://github.com/slavcodev/git-hooks-scripts"
+ABOUT="${FCG}Coding Standards fixer for changed files${NC} version ${FCY}$VERSION${NC}"
+HELP="$ABOUT
+
+Git 'pre-commit' hook that runs 'php-cs-fixer' against changed files.
+
+Note: you can use 'commit --no-verify' to skip 'pre-commit' hooks.
+
+${FCY}Example of config:${NC}
+${FCS}~~~
+[${CMD}]
+  command = php-cs-fixer
+  mode = check
+  config-file = .php_cs
+  files-pattern = .php$
+~~~${NC}
+
+$HOME
+
+> Enjoy coding ❤️"
 
 report_error() {
   echo "${FCR}$@${NC}"
@@ -80,13 +91,23 @@ cs() {
   fi
 }
 
-cs "$(diff_files HEAD)"
-status=$?
+main() {
+  cs "$(diff_files HEAD)"
+  status=$?
 
-if [[ ${status} -gt 0 ]] ; then
-  report_error "Commit rejected due Coding Standards errors"
-else
-  report_done
-fi
+  if [[ ${status} -gt 0 ]] ; then
+    report_error "Commit rejected due Coding Standards errors"
+  else
+    report_done
+  fi
 
-exit ${status}
+  exit ${status}
+}
+
+case "$1" in
+  -h|--help|-? )
+    echo "${HELP}"
+    ;;
+  * )
+    main
+esac

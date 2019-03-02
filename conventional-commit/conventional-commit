@@ -27,30 +27,41 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # =============================================================================
-# Git `commit-msg` hook that looks for patterns the branch name
-# and uses the matches as prefix or suffix of every commit title.
-#
-# This is useful if you have convention to use issue number in the branch,
-# and want to add it automatically to the commit title.
-# For example, you have branch like `FOO-9999-add-hook`, on adding the commit `Add Hook`,
-# the hook may add suffix `Add Hook (FOO-9999)` or prefix `[FOO-9999] Add Hook`.
-#
-# Note: you can use `commit --no-verify` to skip `commit-msg` hooks.
-#
-# Example of config:
-# ~~~
-# [conventional-commit]
-#   excluded-branch = master
-#   excluded-branch = development
-#   prefix-pattern = "FOO-[0-9]+"
-#   suffix-pattern = "FOO-[0-9]+"
-# ~~~
 
 FCR='\033[1;31m' # Red
 FCG='\033[1;32m' # Green
 FCY='\033[0;33m' # Yellow
 FCS='\033[0;37m' # Light gray (silver)
 NC='\033[0m'
+
+CMD="conventional-commit"
+VERSION="1.0.0"
+HOME="https://github.com/slavcodev/git-hooks-scripts"
+ABOUT="${FCG}Conventional commit title${NC} version ${FCY}$VERSION${NC}"
+HELP="$ABOUT
+
+Git 'commit-msg' hook that looks for patterns the branch name
+and uses the matches as prefix or suffix of every commit title.
+
+This is useful if you have convention to use issue number in the branch,
+and want to add it automatically to the commit title.
+For example, you have branch like 'FOO-9999-add-hook', on adding the commit 'Add Hook,
+the hook may add suffix 'Add Hook (FOO-9999)' or prefix '[FOO-9999] Add Hook'.
+
+Note: you can use 'commit --no-verify' to skip 'commit-msg' hooks.
+
+${FCY}Example of config:${NC}
+${FCS}~~~
+[${CMD}]
+  excluded-branch = master
+  excluded-branch = development
+  prefix-pattern = "FOO-[0-9]+"
+  suffix-pattern = "FOO-[0-9]+"
+~~~${NC}
+
+$HOME
+
+> Enjoy coding ❤️"
 
 report_start() {
   echo "${FCG}$@${NC}"
@@ -64,63 +75,73 @@ report_done() {
   [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
 }
 
-prefix_pattern=$(git config --get conventional-commit.prefix-pattern)
-suffix_pattern=$(git config --get conventional-commit.suffix-pattern)
+main() {
+  prefix_pattern=$(git config --get conventional-commit.prefix-pattern)
+  suffix_pattern=$(git config --get conventional-commit.suffix-pattern)
 
-if [[ -z ${prefix_pattern} && -z ${suffix_pattern} ]]; then
-  exit
-fi
-
-branch_name=$(git rev-parse --abbrev-ref HEAD)
-
-excluded_branches=$(git config --get-all conventional-commit.excluded-branch)
-
-if [[ -z ${excluded_branches} ]]; then
-  excluded_branches="master"
-fi
-
-for excluded_branch in ${excluded_branches} ; do
-  if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
+  if [[ -z ${prefix_pattern} && -z ${suffix_pattern} ]]; then
     exit
   fi
-done
 
-commit_file=$1
-commit_title=$(head -n 1 "${commit_file}")
+  branch_name=$(git rev-parse --abbrev-ref HEAD)
 
-if [[ -z "${commit_title}" ]]; then
-  exit
-fi
+  excluded_branches=$(git config --get-all conventional-commit.excluded-branch)
 
-prefix=$(echo "${branch_name}" | grep -Eo "${prefix_pattern}")
-suffix=$(echo "${branch_name}" | grep -Eo "${suffix_pattern}")
+  if [[ -z ${excluded_branches} ]]; then
+    excluded_branches="master"
+  fi
 
-if [[ -z "${prefix}" && -z "${suffix}" ]]; then
-  exit
-fi
+  for excluded_branch in ${excluded_branches} ; do
+    if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
+      exit
+    fi
+  done
 
-prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
-suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
+  commit_file=$1
+  commit_title=$(head -n 1 "${commit_file}")
 
-commit_title=${commit_title#*]}  # remove prefix ending in "."
-commit_title=${commit_title%(*}  # remove suffix starting with "."
+  if [[ -z "${commit_title}" ]]; then
+    exit
+  fi
 
-if [[ -z "${prefix_exists}" ]]; then
-  echo "Adding prefix '${prefix}' to the commit title..."
-  sed -i -e 's/'"${commit_title}"'/'"[${prefix}] ${commit_title}"'/g' "${commit_file}"
-else
-  echo "Prefix '${prefix}' already exists, skipping..."
-fi
+  prefix=$(echo "${branch_name}" | grep -Eo "${prefix_pattern}")
+  suffix=$(echo "${branch_name}" | grep -Eo "${suffix_pattern}")
 
-if [[ -z "${suffix_exists}" ]]; then
-  echo "Adding suffix '${suffix}' to the commit title..."
-  sed -i -e 's/'"${commit_title}"'/'"${commit_title} (${suffix})"'/g' "${commit_file}"
-else
-  echo "Suffix '${suffix}' already exists, skipping..."
-fi
+  if [[ -z "${prefix}" && -z "${suffix}" ]]; then
+    exit
+  fi
 
-echo "Title was changed to '$(head -n 1 "${commit_file}")'"
+  prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
+  suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
 
-report_done
+  commit_title=${commit_title#*]}  # remove prefix ending in "."
+  commit_title=${commit_title%(*}  # remove suffix starting with "."
 
-exit $?
+  if [[ -z "${prefix_exists}" ]]; then
+    echo "Adding prefix '${prefix}' to the commit title..."
+    sed -i -e 's/'"${commit_title}"'/'"[${prefix}] ${commit_title}"'/g' "${commit_file}"
+  else
+    echo "Prefix '${prefix}' already exists, skipping..."
+  fi
+
+  if [[ -z "${suffix_exists}" ]]; then
+    echo "Adding suffix '${suffix}' to the commit title..."
+    sed -i -e 's/'"${commit_title}"'/'"${commit_title} (${suffix})"'/g' "${commit_file}"
+  else
+    echo "Suffix '${suffix}' already exists, skipping..."
+  fi
+
+  echo "Title was changed to '$(head -n 1 "${commit_file}")'"
+
+  report_done
+
+  exit $?
+}
+
+case "$1" in
+  -h|--help|-? )
+    echo "${HELP}"
+    ;;
+  * )
+    main
+esac
