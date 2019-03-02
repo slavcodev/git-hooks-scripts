@@ -19,6 +19,7 @@ Security - in case of vulnerabilities.
 - Added hook `disallow-commits`
 - Added hook `conventional-commit`
 - Added hook `php-cs-fixer`
+- Added help to all hooks, available on running hook with argument `-h` or `--help`.
 
 ## [1.1.0] 2019-03-01
 ### Added
