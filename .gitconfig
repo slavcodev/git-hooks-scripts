@@ -1,11 +1,14 @@
 # Git config file extending local configuration.
-# Should be added to local config:
+#
+# Should be added to the local config:
 # ~~~
 # git config --local --add include.path ../.gitconfig
 # ~~~
+#
+# Requires https://github.com/slavcodev/git-hooks
+# to use configured hooks.
 
 # Configure "pre-commit" hook.
-# Requires https://github.com/slavcodev/git-hooks
 [hooks "pre-commit"]
   disallow-commits = disallow-commits/disallow-commits
 
