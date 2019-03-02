@@ -11,6 +11,7 @@
 # Configure "pre-commit" hook.
 [hooks "pre-commit"]
   disallow-commits = disallow-commits/disallow-commits
+  motivation = motivation/motivation
 
 # Disallow mistakenly commits to master.
 [disallow-commits]
