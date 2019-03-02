@@ -1,0 +1,64 @@
+#!/bin/sh
+# Git `pre-commit` hook that runs `php-cs-fixer` against changed files.
+#
+# Note: you can use `commit --no-verify` to skip `pre-commit` hooks.
+#
+# Example of config:
+# ~~~
+# [php-cs-fixer]
+#   command = php-cs-fixer
+#   mode = check
+#   config-file = .php_cs
+#   files-pattern = .php$
+# ~~~
+
+FCR='\033[1;31m' # Red
+FCG='\033[1;32m' # Green
+FCY='\033[0;33m' # Yellow
+FCS='\033[0;37m' # Light gray (silver)
+NC='\033[0m'
+
+report_error() {
+  echo "${FCR}$@${NC}"
+}
+
+report_done() {
+  [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
+}
+
+command=$(git config --default php-cs-fixer --get php-cs-fixer.command)
+mode=$(git config --default check --get php-cs-fixer.mode)
+prefix_pattern=$(git config --default .php_cs --get php-cs-fixer.config-file)
+files_pattern=$(git config --default \.php$ --get php-cs-fixer.files-pattern)
+
+diff_files() {
+  git diff --name-only --diff-filter=ACMRTUXB $1 | grep -i ${files_pattern}
+}
+
+cs() {
+  if [[ -n "$1" ]] ; then
+    case ${mode} in
+      "check" )
+        command ${command} fix --dry-run --config=${prefix_pattern} -v --using-cache=no --diff --diff-format=udiff --ansi $1
+        ;;
+      "fix" )
+        command ${command} fix --config=${prefix_pattern} -v --using-cache=no --diff --diff-format=udiff --ansi $1
+        ;;
+      * )
+        report_error "Invalid mode option"
+    esac
+  else
+    echo "Nothing to fix"
+  fi
+}
+
+cs "$(diff_files HEAD)"
+status=$?
+
+if [[ ${status} -gt 0 ]] ; then
+  report_error "Commit rejected due Coding Standards errors"
+else
+  report_done
+fi
+
+exit ${status}
