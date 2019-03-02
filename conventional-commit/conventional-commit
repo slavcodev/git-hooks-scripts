@@ -50,10 +50,9 @@ the hook may add suffix 'Add Hook (FOO-9999)' or prefix '[FOO-9999] Add Hook'.
 
 Note: you can use 'commit --no-verify' to skip 'commit-msg' hooks.
 
-Example of config:
-
+${FCY}Example of config:${NC}
 ${FCS}~~~
-[conventional-commit]
+[${CMD}]
   excluded-branch = master
   excluded-branch = development
   prefix-pattern = "FOO-[0-9]+"
@@ -76,7 +75,7 @@ report_done() {
   [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
 }
 
-run_test() {
+main() {
   prefix_pattern=$(git config --get conventional-commit.prefix-pattern)
   suffix_pattern=$(git config --get conventional-commit.suffix-pattern)
 
@@ -144,5 +143,5 @@ case "$1" in
     echo "${HELP}"
     ;;
   * )
-    run_test
+    main
 esac

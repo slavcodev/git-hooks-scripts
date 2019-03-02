@@ -43,21 +43,20 @@ HELP="$ABOUT
 This 'post-merge' hook watches the changed files after merge
 and can execute external command if files matched pattern were changed.
 
-Example of config:
-
+${FCY}Example of config:${NC}
 ${FCS}~~~
-[files-watcher]
+[${CMD}]
   watch-branches = master
   mode = \"auto\"
 
-[files-watcher \"composer\.(json|lock)$\"]
+[${CMD} \"composer\.(json|lock)$\"]
   command = \"composer install -n\"
 
-[files-watcher \".php$\"]
+[${CMD} \".php$\"]
   command = \"php-cs-fixer --dry-run\"
   mode = \"prompt\"
 
-[files-watcher \".php$\"]
+[${CMD} \".php$\"]
   command = \"phpunit\"
   mode = \"confirm\"
 ~~~${NC}

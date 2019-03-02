@@ -43,7 +43,7 @@ $HOME
 
 > Enjoy coding ❤️"
 
-motivate() {
+main() {
   # TODO: Add random messages.
   echo "${FCP}> Enjoy coding ❤${NC}"
 }
@@ -53,5 +53,5 @@ case "$1" in
     echo "${HELP}"
     ;;
   * )
-    motivate
+    main
 esac

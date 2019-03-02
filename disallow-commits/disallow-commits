@@ -45,10 +45,9 @@ Useful for example to disallow commits directly to master branch.
 
 Multiple branches are supported.
 
-Example of config:
-
+${FCY}Example of config:${NC}
 ${FCS}~~~
-[disallow-commits]
+[${CMD}]
   branch = master
   branch = development
 ~~~${NC}
@@ -57,7 +56,7 @@ $HOME
 
 > Enjoy coding ❤️"
 
-run_test() {
+main() {
   branch_name="$(git rev-parse --abbrev-ref HEAD)"
   closed_branches=$(git config --get-all disallow-commits.branch)
 
@@ -78,5 +77,5 @@ case "$1" in
     echo "${HELP}"
     ;;
   * )
-    run_test
+    main
 esac

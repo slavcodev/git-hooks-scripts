@@ -44,10 +44,9 @@ Git 'pre-commit' hook that runs 'php-cs-fixer' against changed files.
 
 Note: you can use 'commit --no-verify' to skip 'pre-commit' hooks.
 
-Example of config:
-
+${FCY}Example of config:${NC}
 ${FCS}~~~
-[php-cs-fixer]
+[${CMD}]
   command = php-cs-fixer
   mode = check
   config-file = .php_cs
@@ -92,7 +91,7 @@ cs() {
   fi
 }
 
-run_test() {
+main() {
   cs "$(diff_files HEAD)"
   status=$?
 
@@ -110,5 +109,5 @@ case "$1" in
     echo "${HELP}"
     ;;
   * )
-    run_test
+    main
 esac
