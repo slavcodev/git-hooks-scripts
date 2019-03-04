@@ -100,7 +100,7 @@ main() {
   fi
 
   watch_tasks_config_pattern=files-watcher\..\*\.command
-  watch_tasks=$(git config --name-only --get-regexp ${watch_tasks_config_pattern})
+  watch_tasks=$(git config --name-only --get-regexp ${watch_tasks_config_pattern} | sort -u)
 
   if [[ -z ${watch_tasks} ]]; then
       exit
