@@ -35,7 +35,7 @@ FCS='\033[0;37m' # Light gray (silver)
 NC='\033[0m'
 
 CMD="files-watcher"
-VERSION="1.0.0"
+VERSION="1.1.0"
 HOME="https://github.com/slavcodev/git-hooks-scripts"
 ABOUT="${FCG}Files watcher${NC} version ${FCY}$VERSION${NC}"
 HELP="$ABOUT
