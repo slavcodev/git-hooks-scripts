@@ -16,15 +16,19 @@ Security - in case of vulnerabilities.
 
 ## [Unreleased]
 ### Added
-- Added hook `disallow-commits`
-- Added hook `conventional-commit`
-- Added hook `php-cs-fixer`
+- Added hook `disallow-commits`.
+- Added hook `conventional-commit`.
+- Added hook `php-cs-fixer`.
 - Added help to all hooks, available on running hook with argument `-h` or `--help`.
+
+## Changed
+- Allowed multiple commands per file patterns in the `files-watcher`.
+
 
 ## [1.1.0] 2019-03-01
 ### Added
-- Added hook `motivation`
-- Added hook `files-watcher`
+- Added hook `motivation`.
+- Added hook `files-watcher`.
 
 ## [1.0.0] 2019-03-01
 Initial release.
