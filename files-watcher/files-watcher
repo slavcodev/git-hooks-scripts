@@ -90,6 +90,13 @@ report_done() {
   [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
 }
 
+run_command() {
+    local previous_ifs=${IFS}
+    IFS=' '
+    command $@
+    IFS=${previous_ifs}
+}
+
 main() {
   watch_branches=$(git config --default master --get files-watcher.watch-branches)
   default_mode=$(git config --default prompt --get files-watcher.mode)
@@ -141,16 +148,16 @@ main() {
           for command in ${commands} ; do
               case "${mode}" in
                   "auto" )
-                      command ${command}
+                      run_command "${command}"
                       ;;
                   "prompt" )
                       if prompt "Do you like to run '${command}'?"; then
-                        command ${command}
+                          run_command "${command}"
                       fi
                       ;;
                   "confirm" )
                       if confirm "Do you like to run '${command}'?"; then
-                          command ${command}
+                          run_command "${command}"
                       fi
                       ;;
                   * )
