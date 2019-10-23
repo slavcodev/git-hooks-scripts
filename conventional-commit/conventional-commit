@@ -42,7 +42,9 @@ ABOUT="${FCG}Conventional commit title${NC} version ${FCY}$VERSION${NC}"
 OPTION_EXCLUDE_BRANCH="excluded-branch"
 OPTION_PREFIX_PATTERN="prefix-pattern"
 OPTION_SUFFIX_PATTERN="suffix-pattern"
+OPTION_MAX_LENGTH="max-length"
 OPTION_EXCLUDE_BRANCH_DEFAULT="master"
+OPTION_MAX_LENGTH_DEFAULT=80
 
 HELP="$ABOUT
 
@@ -63,6 +65,7 @@ ${FCS}~~~
   ${OPTION_EXCLUDE_BRANCH} = development
   ${OPTION_PREFIX_PATTERN} = "FOO-[0-9]+"
   ${OPTION_SUFFIX_PATTERN} = "FOO-[0-9]+"
+  ${OPTION_MAX_LENGTH} = ${OPTION_MAX_LENGTH_DEFAULT}
 ~~~${NC}
 
 $HOME
@@ -137,6 +140,7 @@ main() {
 
   prefix_pattern="$(read_config ${OPTION_PREFIX_PATTERN})"
   suffix_pattern="$(read_config ${OPTION_SUFFIX_PATTERN})"
+  max_length="$(read_config ${OPTION_MAX_LENGTH} ${OPTION_MAX_LENGTH_DEFAULT})"
 
   if [[ -z ${prefix_pattern} && -z ${suffix_pattern} ]]; then
     return
@@ -178,6 +182,11 @@ main() {
     else
       echo "Suffix '${suffix}' already exists, skipping..."
     fi
+  fi
+
+  if [[ ${#mutated_commit_title} -gt ${max_length} ]]; then
+    report_error "Too long commit message, must be maximum ${max_length} characters"
+    return 1
   fi
 
   if [[ "${mutated_commit_title}" != "${commit_title}" ]] ; then
