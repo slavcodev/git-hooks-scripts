@@ -38,6 +38,14 @@ CMD="conventional-commit"
 VERSION="1.0.0"
 HOME="https://github.com/slavcodev/git-hooks-scripts"
 ABOUT="${FCG}Conventional commit title${NC} version ${FCY}$VERSION${NC}"
+
+OPTION_EXCLUDE_BRANCH="excluded-branch"
+OPTION_PREFIX_PATTERN="prefix-pattern"
+OPTION_SUFFIX_PATTERN="suffix-pattern"
+OPTION_MAX_LENGTH="max-length"
+OPTION_EXCLUDE_BRANCH_DEFAULT="master"
+OPTION_MAX_LENGTH_DEFAULT=80
+
 HELP="$ABOUT
 
 Git 'commit-msg' hook that looks for patterns the branch name
@@ -53,10 +61,11 @@ Note: you can use 'commit --no-verify' to skip 'commit-msg' hooks.
 ${FCY}Example of config:${NC}
 ${FCS}~~~
 [${CMD}]
-  excluded-branch = master
-  excluded-branch = development
-  prefix-pattern = "FOO-[0-9]+"
-  suffix-pattern = "FOO-[0-9]+"
+  ${OPTION_EXCLUDE_BRANCH} = master
+  ${OPTION_EXCLUDE_BRANCH} = development
+  ${OPTION_PREFIX_PATTERN} = "FOO-[0-9]+"
+  ${OPTION_SUFFIX_PATTERN} = "FOO-[0-9]+"
+  ${OPTION_MAX_LENGTH} = ${OPTION_MAX_LENGTH_DEFAULT}
 ~~~${NC}
 
 $HOME
@@ -75,67 +84,119 @@ report_done() {
   [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
 }
 
+read_config() {
+  option="$1"
+  default="$2"
+
+  value="$(git config --get ${CMD}.${option})"
+
+  if [[ -z ${value} ]] ; then
+    echo ${default}
+  else
+    echo ${value}
+  fi
+}
+
+read_all_configs() {
+  option="$1"
+  default="$2"
+
+  value="$(git config --get-all ${CMD}.${option})"
+
+  if [[ -z ${value} ]] ; then
+    echo ${default}
+  else
+    echo ${value}
+  fi
+}
+
+write_commit_title() {
+  commit_file="${1}"
+  commit_title="${2}"
+  mutated_commit_title="${3}"
+
+  if [[ -f "${commit_file}" ]] ; then
+    sed -i -e 's/'"${commit_title}"'/'"${mutated_commit_title}"'/g' "${commit_file}"
+  fi
+}
+
+read_commit_title() {
+  if [[ -f "${1}" ]] ; then
+    echo "$(head -n 1 "${1}")"
+  else
+    echo "${1}"
+  fi
+}
+
 main() {
-  prefix_pattern=$(git config --get conventional-commit.prefix-pattern)
-  suffix_pattern=$(git config --get conventional-commit.suffix-pattern)
+  report_start "Preparing conventional prefix or suffix for the commit..."
+
+  commit_file="${1}"
+  commit_title="$(read_commit_title ${commit_file})"
+
+  if [[ -z "${commit_title}" ]]; then
+    return
+  fi
+
+  prefix_pattern="$(read_config ${OPTION_PREFIX_PATTERN})"
+  suffix_pattern="$(read_config ${OPTION_SUFFIX_PATTERN})"
+  max_length="$(read_config ${OPTION_MAX_LENGTH} ${OPTION_MAX_LENGTH_DEFAULT})"
 
   if [[ -z ${prefix_pattern} && -z ${suffix_pattern} ]]; then
-    exit
+    return
   fi
+
+  excluded_branches="$(read_all_configs ${OPTION_EXCLUDE_BRANCH} ${OPTION_EXCLUDE_BRANCH_DEFAULT})"
 
   branch_name=$(git rev-parse --abbrev-ref HEAD)
 
-  excluded_branches=$(git config --get-all conventional-commit.excluded-branch)
-
-  if [[ -z ${excluded_branches} ]]; then
-    excluded_branches="master"
-  fi
-
   for excluded_branch in ${excluded_branches} ; do
     if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
-      exit
+      return
     fi
   done
 
-  commit_file=$1
-  commit_title=$(head -n 1 "${commit_file}")
+  mutated_commit_title=${commit_title}
 
-  if [[ -z "${commit_title}" ]]; then
-    exit
+  if [[ -n "${prefix_pattern}" ]]; then
+    prefix=$(echo "${branch_name}" | grep -Eo "${prefix_pattern}")
+    prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
+    # commit_title=${commit_title#*]}  # remove prefix ending in "]"
+
+    if [[ -z "${prefix_exists}" ]]; then
+      echo "Adding prefix '${prefix}' to the commit title..."
+      mutated_commit_title="[${prefix}] ${mutated_commit_title}"
+    else
+      echo "Prefix '${prefix}' already exists, skipping..."
+    fi
   fi
 
-  prefix=$(echo "${branch_name}" | grep -Eo "${prefix_pattern}")
-  suffix=$(echo "${branch_name}" | grep -Eo "${suffix_pattern}")
+  if [[ -n "${suffix_pattern}" ]]; then
+    suffix=$(echo "${branch_name}" | grep -Eo "${suffix_pattern}")
+    suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
+    # commit_title=${commit_title%(*}  # remove suffix starting with "("
 
-  if [[ -z "${prefix}" && -z "${suffix}" ]]; then
-    exit
+    if [[ -z "${suffix_exists}" ]]; then
+      echo "Adding suffix '${suffix}' to the commit title..."
+      mutated_commit_title="${mutated_commit_title} (${suffix})"
+    else
+      echo "Suffix '${suffix}' already exists, skipping..."
+    fi
   fi
 
-  prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
-  suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
+  if [[ ${#mutated_commit_title} -gt ${max_length} ]]; then
+    report_error "Too long commit message, must be maximum ${max_length} characters"
+    return 1
+  fi
 
-  commit_title=${commit_title#*]}  # remove prefix ending in "."
-  commit_title=${commit_title%(*}  # remove suffix starting with "."
-
-  if [[ -z "${prefix_exists}" ]]; then
-    echo "Adding prefix '${prefix}' to the commit title..."
-    sed -i -e 's/'"${commit_title}"'/'"[${prefix}] ${commit_title}"'/g' "${commit_file}"
+  if [[ "${mutated_commit_title}" != "${commit_title}" ]] ; then
+    $(write_commit_title "${commit_file}" "${commit_title}" "${mutated_commit_title}")
+    echo "Commit message was changed to '$(read_commit_title ${commit_file})'"
   else
-    echo "Prefix '${prefix}' already exists, skipping..."
+    echo "No changes required"
   fi
-
-  if [[ -z "${suffix_exists}" ]]; then
-    echo "Adding suffix '${suffix}' to the commit title..."
-    sed -i -e 's/'"${commit_title}"'/'"${commit_title} (${suffix})"'/g' "${commit_file}"
-  else
-    echo "Suffix '${suffix}' already exists, skipping..."
-  fi
-
-  echo "Title was changed to '$(head -n 1 "${commit_file}")'"
 
   report_done
-
-  exit $?
 }
 
 case "$1" in
@@ -143,5 +204,6 @@ case "$1" in
     echo "${HELP}"
     ;;
   * )
-    main
+    main "$@"
+    exit $?
 esac
