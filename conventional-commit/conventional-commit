@@ -44,7 +44,7 @@ OPTION_PREFIX_PATTERN="prefix-pattern"
 OPTION_SUFFIX_PATTERN="suffix-pattern"
 OPTION_MAX_LENGTH="max-length"
 OPTION_EXCLUDE_BRANCH_DEFAULT="master"
-OPTION_MAX_LENGTH_DEFAULT=80
+OPTION_MAX_LENGTH_DEFAULT=75
 
 HELP="$ABOUT
 
@@ -84,6 +84,14 @@ report_done() {
   [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
 }
 
+report_test_success() {
+  echo " ✓ $@"
+}
+
+report_test_failure() {
+  echo " × ${FCR}$@${NC}"
+}
+
 read_config() {
   option="$1"
   default="$2"
@@ -110,88 +118,111 @@ read_all_configs() {
   fi
 }
 
-write_commit_title() {
-  commit_file="${1}"
-  commit_title="${2}"
-  mutated_commit_title="${3}"
+filter_branch() {
+  branch_name=$1
+  shift
 
-  if [[ -f "${commit_file}" ]] ; then
-    sed -i -e 's/'"${commit_title}"'/'"${mutated_commit_title}"'/g' "${commit_file}"
+  while [[ -n $1 ]]; do
+      excluded_branch=$1
+      shift
+      if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
+        return
+      fi
+  done
+
+  echo "${branch_name}"
+}
+
+extract_addon_text() {
+  branch_name="$1"
+  pattern="$2"
+
+  if [[ -n "${pattern}" ]]; then
+    echo "${branch_name}" | grep -Eo "${pattern}"
+  else
+    echo ""
   fi
 }
 
-read_commit_title() {
-  if [[ -f "${1}" ]] ; then
-    echo "$(head -n 1 "${1}")"
-  else
-    echo "${1}"
+add_prefix() {
+  commit_title="$1"
+  branch_name="$2"
+  pattern="$3"
+  prefix=$(extract_addon_text "${branch_name}" "${pattern}")
+
+  if [[ -n "${prefix}" ]]; then
+    prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
+    if [[ -z "${prefix_exists}" ]]; then
+      commit_title="[${prefix}] ${commit_title}"
+    fi
   fi
+
+  echo "${commit_title}"
+}
+
+add_suffix() {
+  commit_title="$1"
+  branch_name="$2"
+  pattern="$3"
+  suffix=$(extract_addon_text "${branch_name}" "${pattern}")
+
+  if [[ -n "${suffix}" ]]; then
+    suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
+    if [[ -z "${suffix_exists}" ]]; then
+      commit_title="${commit_title} (${suffix})"
+    fi
+  fi
+
+  echo "${commit_title}"
 }
 
 main() {
   report_start "Preparing conventional prefix or suffix for the commit..."
 
   commit_file="${1}"
-  commit_title="$(read_commit_title ${commit_file})"
+  if [[ -f "${commit_file}" ]] ; then
+    is_file="Yes"
+  else
+    is_file="No"
+  fi
+
+  if [[ "${is_file}" == "Yes" ]] ; then
+    commit_title="$(head -n 1 "${commit_file}")"
+  else
+    commit_title="${commit_file}"
+  fi
 
   if [[ -z "${commit_title}" ]]; then
     return
   fi
 
-  prefix_pattern="$(read_config ${OPTION_PREFIX_PATTERN})"
-  suffix_pattern="$(read_config ${OPTION_SUFFIX_PATTERN})"
-  max_length="$(read_config ${OPTION_MAX_LENGTH} ${OPTION_MAX_LENGTH_DEFAULT})"
-
-  if [[ -z ${prefix_pattern} && -z ${suffix_pattern} ]]; then
+  excluded_branches="$(read_all_configs ${OPTION_EXCLUDE_BRANCH} ${OPTION_EXCLUDE_BRANCH_DEFAULT})"
+  branch_name=$(filter_branch $(git rev-parse --abbrev-ref HEAD) ${excluded_branches})
+  if [[ -z "${branch_name}" ]]; then
     return
   fi
 
-  excluded_branches="$(read_all_configs ${OPTION_EXCLUDE_BRANCH} ${OPTION_EXCLUDE_BRANCH_DEFAULT})"
+  mutated_commit_title="${commit_title}"
 
-  branch_name=$(git rev-parse --abbrev-ref HEAD)
+  prefix_pattern="$(read_config ${OPTION_PREFIX_PATTERN})"
+  mutated_commit_title="$(add_prefix "${mutated_commit_title}" "branch""${branch_name}" "${prefix_pattern}")"
 
-  for excluded_branch in ${excluded_branches} ; do
-    if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
-      return
-    fi
-  done
+  suffix_pattern="$(read_config ${OPTION_SUFFIX_PATTERN})"
+  mutated_commit_title="$(add_suffix "${mutated_commit_title}" "branch""${branch_name}" "${suffix_pattern}")"
 
-  mutated_commit_title=${commit_title}
-
-  if [[ -n "${prefix_pattern}" ]]; then
-    prefix=$(echo "${branch_name}" | grep -Eo "${prefix_pattern}")
-    prefix_exists=$(echo "${commit_title}" | grep -o "^\[${prefix}\] ")
-    # commit_title=${commit_title#*]}  # remove prefix ending in "]"
-
-    if [[ -z "${prefix_exists}" ]]; then
-      echo "Adding prefix '${prefix}' to the commit title..."
-      mutated_commit_title="[${prefix}] ${mutated_commit_title}"
-    else
-      echo "Prefix '${prefix}' already exists, skipping..."
-    fi
-  fi
-
-  if [[ -n "${suffix_pattern}" ]]; then
-    suffix=$(echo "${branch_name}" | grep -Eo "${suffix_pattern}")
-    suffix_exists=$(echo "${commit_title}" | grep -o " (${suffix})$")
-    # commit_title=${commit_title%(*}  # remove suffix starting with "("
-
-    if [[ -z "${suffix_exists}" ]]; then
-      echo "Adding suffix '${suffix}' to the commit title..."
-      mutated_commit_title="${mutated_commit_title} (${suffix})"
-    else
-      echo "Suffix '${suffix}' already exists, skipping..."
-    fi
-  fi
-
+  max_length="$(read_config ${OPTION_MAX_LENGTH} ${OPTION_MAX_LENGTH_DEFAULT})"
   if [[ ${#mutated_commit_title} -gt ${max_length} ]]; then
     report_error "Too long commit message, must be maximum ${max_length} characters"
     return 1
   fi
 
   if [[ "${mutated_commit_title}" != "${commit_title}" ]] ; then
-    $(write_commit_title "${commit_file}" "${commit_title}" "${mutated_commit_title}")
-    echo "Commit message was changed to '$(read_commit_title ${commit_file})'"
+    if [[ "${is_file}" == "Yes" ]] ; then
+      sed -i -e 's/'"${commit_title}"'/'"${mutated_commit_title}"'/g' "${commit_file}"
+      echo "Commit message was changed to '$(head -n 1 "${commit_file}")'"
+    else
+      echo "Commit message was changed to '${mutated_commit_title}'"
+    fi
   else
     echo "No changes required"
   fi
@@ -199,9 +230,48 @@ main() {
   report_done
 }
 
+assert() {
+  rule=$1
+  actual=$2
+  expected=$3
+
+  if [[ "${actual}" == "${expected}" ]]; then
+    report_test_success "${rule}"
+  else
+    report_test_failure "${rule}" "(expected: ${expected}, got: ${actual})"
+  fi
+}
+
+test() {
+  report_start "Testing conventional prefix or prefix for the commit..."
+
+  assert "Assert branch allowance" "$(filter_branch "foo" "bar" "baz")" "foo"
+  assert "Skip excluded branches" "$(filter_branch "foo" "bar" "foo")" ""
+
+  assert "Skip pattern if not found in the branch name" "$(extract_addon_text "master" "FOO-\d+")" ""
+  assert "Find placeholder value in the branch name" "$(extract_addon_text "FOO-123-feature" "FOO-\d+")" "FOO-123"
+  assert "Find placeholder value in any part of branch name" "$(extract_addon_text "featureFOO-123" "FOO-\d+")" "FOO-123"
+
+  assert "Skip prefix rule if pattern not set in config" "$(add_prefix "Commit" "branch" "")" "Commit"
+  assert "Skip prefix rule if pattern not found in branch" "$(add_prefix "Commit" "branch" "FOO")" "Commit"
+  assert "Execute prefix rule if pattern found in branch" "$(add_prefix "Commit" "branch-FOO" "FOO")" "[FOO] Commit"
+  assert "Skip prefix rule if pattern already exists in commit message" "$(add_prefix "[FOO] Commit" "branch" "FOO")" "[FOO] Commit"
+
+  assert "Skip suffix rule if pattern not set in config" "$(add_suffix "Commit" "branch" "")" "Commit"
+  assert "Skip suffix rule if pattern not found in branch" "$(add_suffix "Commit" "branch" "FOO")" "Commit"
+  assert "Execute suffix rule if pattern found in branch" "$(add_suffix "Commit" "branch-FOO" "FOO")" "Commit (FOO)"
+  assert "Skip suffix rule if pattern already exists in commit message" "$(add_suffix "Commit (FOO)" "branch-FOO" "FOO")" "Commit (FOO)"
+
+  report_done
+}
+
 case "$1" in
   -h|--help|-? )
     echo "${HELP}"
+    ;;
+  --test )
+    test "$@"
+    exit $?
     ;;
   * )
     main "$@"
