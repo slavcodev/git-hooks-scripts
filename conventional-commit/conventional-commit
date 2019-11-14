@@ -40,10 +40,12 @@ HOME="https://github.com/slavcodev/git-hooks-scripts"
 ABOUT="${FCG}Conventional commit title${NC} version ${FCY}$VERSION${NC}"
 
 OPTION_EXCLUDE_BRANCH="excluded-branch"
+OPTION_EXCLUDE_COMMIT="excluded-commit"
 OPTION_PREFIX_PATTERN="prefix-pattern"
 OPTION_SUFFIX_PATTERN="suffix-pattern"
 OPTION_MAX_LENGTH="max-length"
 OPTION_EXCLUDE_BRANCH_DEFAULT="master"
+OPTION_EXCLUDE_COMMIT_DEFAULT=$(printf "Merge branch\nRevert")
 OPTION_MAX_LENGTH_DEFAULT=75
 
 HELP="$ABOUT
@@ -63,6 +65,8 @@ ${FCS}~~~
 [${CMD}]
   ${OPTION_EXCLUDE_BRANCH} = master
   ${OPTION_EXCLUDE_BRANCH} = development
+  ${OPTION_EXCLUDE_COMMIT} = Merge branch
+  ${OPTION_EXCLUDE_COMMIT} = Revert
   ${OPTION_PREFIX_PATTERN} = "FOO-[0-9]+"
   ${OPTION_SUFFIX_PATTERN} = "FOO-[0-9]+"
   ${OPTION_MAX_LENGTH} = ${OPTION_MAX_LENGTH_DEFAULT}
@@ -92,6 +96,15 @@ report_test_failure() {
   echo " × ${FCR}$@${NC}"
 }
 
+chr() {
+  [ "$1" -lt 256 ] || return 1
+  printf "\\$(printf '%03o' "$1")"
+}
+
+ord() {
+  LC_CTYPE=C printf '%d\n' "'$1"
+}
+
 read_config() {
   option="$1"
   default="$2"
@@ -111,26 +124,26 @@ read_all_configs() {
 
   value="$(git config --get-all ${CMD}.${option})"
 
-  if [[ -z ${value} ]] ; then
-    echo ${default}
+  if [[ -z "${value}" ]] ; then
+    echo "${default}"
   else
-    echo ${value}
+    echo "${value}"
   fi
 }
 
-filter_branch() {
-  branch_name=$1
-  shift
+filter_string_by_prefixes() {
+  string="$1"
+  filters="$2"
 
-  while [[ -n $1 ]]; do
-      excluded_branch=$1
-      shift
-      if [[ "${branch_name}" =~ "${excluded_branch}" ]]; then
+  while IFS=$(chr 10) read -ra options; do
+    for prefix in "${options[@]}"; do
+      if [[ "${string}" =~ "${prefix}" ]]; then
         return
       fi
-  done
+    done
+  done <<< "${filters}"
 
-  echo "${branch_name}"
+  echo "${string}"
 }
 
 extract_addon_text() {
@@ -196,8 +209,15 @@ main() {
     return
   fi
 
-  excluded_branches="$(read_all_configs ${OPTION_EXCLUDE_BRANCH} ${OPTION_EXCLUDE_BRANCH_DEFAULT})"
-  branch_name=$(filter_branch $(git rev-parse --abbrev-ref HEAD) ${excluded_branches})
+  excluded_commits="$(read_all_configs "${OPTION_EXCLUDE_COMMIT}" "${OPTION_EXCLUDE_COMMIT_DEFAULT}")"
+  commit_title=$(filter_string_by_prefixes "${commit_title}" "${excluded_commits}")
+
+  if [[ -z "${commit_title}" ]]; then
+    return
+  fi
+
+  excluded_branches="$(read_all_configs "${OPTION_EXCLUDE_BRANCH}" "${OPTION_EXCLUDE_BRANCH_DEFAULT}")"
+  branch_name=$(filter_string_by_prefixes "$(git rev-parse --abbrev-ref HEAD)" "${excluded_branches}")
   if [[ -z "${branch_name}" ]]; then
     return
   fi
@@ -245,8 +265,8 @@ assert() {
 test() {
   report_start "Testing conventional prefix or prefix for the commit..."
 
-  assert "Assert branch allowance" "$(filter_branch "foo" "bar" "baz")" "foo"
-  assert "Skip excluded branches" "$(filter_branch "foo" "bar" "foo")" ""
+  assert "Allow strings started with specific prefixes" "$(filter_string_by_prefixes "foo" "$(printf "bar\nbaz")")" "foo"
+  assert "Skip strings started with specific prefixes" "$(filter_string_by_prefixes "foo" "$(printf "bar\nfoo")")" ""
 
   assert "Skip pattern if not found in the branch name" "$(extract_addon_text "master" "FOO-\d+")" ""
   assert "Find placeholder value in the branch name" "$(extract_addon_text "FOO-123-feature" "FOO-\d+")" "FOO-123"
